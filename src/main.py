@@ -7,82 +7,83 @@ from typing import Optional
 from setup.config import load_config, AppConfig, EnvironmentConfig
 from utils.download_roboflow import download_roboflow_dataset
 from script.train import train_yolo_segmentation, resume_training
-
+from script.video import rs_predict
+from utils.logger import LOGGER
 
 def download_only(app_config: AppConfig, env_config: EnvironmentConfig) -> None:
     """Download dataset only"""
-    print("=" * 70)
-    print("📥 DOWNLOADING DATASET")
-    print("=" * 70)
+    LOGGER.info("=" * 70)
+    LOGGER.info("📥 DOWNLOADING DATASET")
+    LOGGER.info("=" * 70)
     
     dataset_path = download_roboflow_dataset(
         app_config.roboflow,
         env_config
     )
     
-    print(f"\n✅ Dataset downloaded successfully!")
-    print(f"📂 Location: {dataset_path}")
+    LOGGER.info(f"\n✅ Dataset downloaded successfully!")
+    LOGGER.info(f"📂 Location: {dataset_path}")
 
 
 def train_only(app_config: AppConfig) -> Path:
     """Train model only"""
-    print("=" * 70)
-    print("🚀 TRAINING MODEL")
-    print("=" * 70)
+    LOGGER.info("=" * 70)
+    LOGGER.info("🚀 TRAINING MODEL")
+    LOGGER.info("=" * 70)
     
     results, best_model_path = train_yolo_segmentation(
         app_config.training,
         app_config.roboflow
     )
     
-    print(f"\n✅ Training completed successfully!")
-    print(f"🏆 Best model: {best_model_path}")
+    LOGGER.info(f"\n✅ Training completed successfully!")
+    LOGGER.info(f"🏆 Best model: {best_model_path}")
     
     return best_model_path
 
 
 def full_pipeline(app_config: AppConfig, env_config: EnvironmentConfig) -> Path:
     """Run full pipeline: download + train"""
-    print("=" * 70)
-    print("🔄 FULL PIPELINE: DOWNLOAD + TRAIN")
-    print("=" * 70)
+    LOGGER.info("=" * 70)
+    LOGGER.info("🔄 FULL PIPELINE: DOWNLOAD + TRAIN")
+    LOGGER.info("=" * 70)
     
     # Step 1: Download dataset
-    print("\n" + "=" * 70)
-    print("STEP 1: Downloading Dataset")
-    print("=" * 70)
+    LOGGER.info("\n" + "=" * 70)
+    LOGGER.info("STEP 1: Downloading Dataset")
+    LOGGER.info("=" * 70)
     
     dataset_path = download_roboflow_dataset(
         app_config.roboflow,
         env_config
     )
     
-    print(f"\n✅ Dataset ready at: {dataset_path}")
+    LOGGER.info(f"\n✅ Dataset ready at: {dataset_path}")
     
     # Step 2: Train model
-    print("\n" + "=" * 70)
-    print("STEP 2: Training Model")
-    print("=" * 70)
+    LOGGER.info("\n" + "=" * 70)
+    LOGGER.info("STEP 2: Training Model")
+    LOGGER.info("=" * 70)
     
     results, best_model_path = train_yolo_segmentation(
         app_config.training,
         app_config.roboflow
     )
     
-    print("\n" + "=" * 70)
-    print("🎉 PIPELINE COMPLETE!")
-    print("=" * 70)
-    print(f"📂 Dataset: {dataset_path}")
-    print(f"🏆 Best model: {best_model_path}")
+    LOGGER.info("\n" + "=" * 70)
+    LOGGER.info("🎉 PIPELINE COMPLETE!")
+    LOGGER.info("=" * 70)
+    LOGGER.info(f"📂 Dataset: {dataset_path}")
+    LOGGER.info(f"🏆 Best model: {best_model_path}")
     
     return best_model_path
 
 
 def resume_pipeline(app_config: AppConfig, checkpoint: Optional[str] = None) -> None:
     """Resume training from checkpoint"""
-    print("=" * 70)
-    print("🔄 RESUMING TRAINING")
-    print("=" * 70)
+    LOGGER.info("=" * 70)
+    LOGGER.info("🔄 RESUMING TRAINING")
+    LOGGER.info("=" * 70)
     
     # Determine checkpoint path
     if checkpoint:
@@ -93,14 +94,14 @@ def resume_pipeline(app_config: AppConfig, checkpoint: Optional[str] = None) -> 
         checkpoint_path = app_config.training.project_dir / run_name / "weights" / "last.pt"
     
     if not checkpoint_path.exists():
-        print(f"❌ Checkpoint not found: {checkpoint_path}")
+        LOGGER.error(f"❌ Checkpoint not found: {checkpoint_path}")
         sys.exit(1)
     
-    print(f"📂 Checkpoint: {checkpoint_path}")
+    LOGGER.info(f"📂 Checkpoint: {checkpoint_path}")
     
     results = resume_training(checkpoint_path)
     
-    print("\n✅ Resumed training completed!")
+    LOGGER.info("\n✅ Resumed training completed!")
 
 
 def main():
@@ -152,6 +153,11 @@ Examples:
         action="store_true",
         help="Resume training from checkpoint"
     )
+    mode_group.add_argument(
+        "--rspredict",
+        action="store_true",
+        help="Need pyrealsesne and use realsense video to predict"
+    )
     
     # Optional arguments
     parser.add_argument(
@@ -166,13 +172,14 @@ Examples:
         help="Path to checkpoint for resuming (default: use last checkpoint)"
     )
     
+    
     args = parser.parse_args()
     
     try:
         # Load configuration
-        print(f"📋 Loading configuration from: {args.config}")
+        LOGGER.info(f"📋 Loading configuration from: {args.config}")
         app_config, env_config = load_config(args.config)
-        print("✅ Configuration loaded successfully!\n")
+        LOGGER.info("✅ Configuration loaded successfully!\n")
         
         # Execute requested mode
         if args.full:
@@ -183,10 +190,12 @@ Examples:
             train_only(app_config)
         elif args.resume:
             resume_pipeline(app_config, args.checkpoint)
-        
-        print("\n" + "=" * 70)
-        print("✨ ALL DONE! ✨")
-        print("=" * 70)
+        elif args.rspredict:
+            rs_predict(app_config)
+
+        LOGGER.info("\n" + "=" * 70)
+        LOGGER.info("✨ ALL DONE! ✨")
+        LOGGER.info("=" * 70)
         
     except FileNotFoundError as e:
         print(f"\n❌ File Error: {e}")

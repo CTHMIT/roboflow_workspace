@@ -1,10 +1,10 @@
 roboflow:
   workspace: yoloseg-oxj7u
   project: yolo-seg-okjbk
-  version: 4
+  version: 6
   format: yolov11
   save_path: datasets
-  overwrite: false
+  overwrite: true
 
 training:
   model_name: yolo11m-seg
@@ -27,15 +27,21 @@ training:
   dfl_gain: 1.5
   
   patience: 50
-  save_period: 0
-  workers: null
-  cache: false
+  workers: 12
+  cache: 'disk'
   
   project_dir: models
   pretrain_dir: models/pretrain
+  
   
   amp: true
   deterministic: true
   plots: true
   verbose: true
-  seed: 0
+  seed: 42
+
+prediction:
+  predict_dir: models/production
+  output_dir: output
+  confidence: 0.5
+  iou: 0.8

@@ -1,18 +1,18 @@
 [project]
-name = "Y25"
+name = "roboflow_workspace"
 version = "0.1.0"
 description = "Default template for PDM package"
 authors = [
     {name = "cthsu", email = "chuntsehsu@gmail.com"},
 ]
 dependencies = [
-    "ultralytics>=8.3.222",
-    "numpy>=2.2.6",
-    "opencv-python>=4.12.0",
-    "roboflow>=1.2.11",
+    "ultralytics>=8.3.223",
+    "pydantic-settings>=2.11.0",
     "pydantic>=2.12.3",
-    "pydantic-settings>=2.11.0"
-    ]
+    "roboflow>=1.2.11",
+    "pyrealsense2>=2.56.5.9235",
+    "opencv-contrib-python>=4.12.0.88",
+]
     
 requires-python = "==3.10.*"
 readme = "README.md"

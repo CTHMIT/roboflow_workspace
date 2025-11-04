@@ -2,7 +2,7 @@
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -93,9 +93,8 @@ class TrainingConfig(BaseModel):
     
     # Training behavior
     patience: int = Field(default=50, ge=0, description="Early stopping patience")
-    save_period: int = Field(default=10, ge=1, description="Save checkpoint every N epochs")
     workers: Optional[int] = Field(default=None, description="Number of dataloader workers")
-    cache: bool = Field(default=False, description="Cache images in RAM")
+    cache: Union[bool, str] = Field(default=False, description="Cache images in RAM")
     
     # Output settings
     project_dir: Path = Field(default=Path("models"), description="Project directory")
@@ -124,6 +123,17 @@ class TrainingConfig(BaseModel):
         """Generate run name for this training"""
         return f"{self.model_name.value}_v{dataset_version}"
 
+class PredictConfig(BaseModel):
+    predict_dir:Path = Field(default="models/production", description="Prodoction Model save path")
+    output_dir:Path = Field(default="output", description="Model Predict Output path")
+    confidence: float= Field(default=0.5, ge=0.0, le=1.0, description="Objects detected with confidence below this threshold will be disregarded.")
+    iou: float = Field(default=0.8, ge=0.0, le=1.0, description="Threshold for Non-Maximum Suppression (NMS).")
+    half: bool = Field(default=False, description="Enables half-precision (FP16) inference")
+    device:Optional[str] = Field(default=None, description="Specifies the device for inference (e.g., cpu, cuda:0 or 0)")
+    project: Optional[str] = Field(default=None, deprecated="Name of the project directory where prediction outputs are saved")
+    name: Optional[str] = Field(default=None, description="Name of the prediction run. Used for creating a subdirectory within the project folder")
+    verbose: bool = Field(default=False, description="Get information with predict detail")
+
 
 class EnvironmentConfig(BaseSettings):
     """Environment variables configuration"""
@@ -134,12 +144,12 @@ class EnvironmentConfig(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
-
 class AppConfig(BaseModel):
     """Main application configuration"""
     roboflow: RoboflowConfig
     training: TrainingConfig
-    
+    prediction: PredictConfig
+
     @classmethod
     def from_yaml(cls, config_path: str = "src/config/config.yaml") -> "AppConfig":
         """Load configuration from YAML file"""
@@ -175,6 +185,8 @@ class AppConfig(BaseModel):
         
         with open(config_file, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+
+
 
 
 def load_config(config_path: str = "src/config/config.yaml") -> tuple[AppConfig, EnvironmentConfig]:

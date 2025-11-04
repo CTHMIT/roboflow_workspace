@@ -8,3 +8,6 @@ datasets/*
 models/*
 *.pt
 .venv
+output/*
+logs/*
+.logs
