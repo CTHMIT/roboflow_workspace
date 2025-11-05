@@ -301,7 +301,6 @@ def validate_folder_structure(
         'valid_pairs': 0
     }
     
-    # Define paths
     IMG_DIR = folder_path / 'images'
     LBL_DIR = folder_path / 'labels'
     
@@ -309,15 +308,13 @@ def validate_folder_structure(
         LOGGER.warning(f"Skipping {folder_name}: missing images or labels directory")
         return stats
     
-    LOGGER.info(f"\n{'='*60}")
+    LOGGER.info(f"{'='*60}")
     LOGGER.info(f"VALIDATING: {folder_name.upper()}")
     LOGGER.info(f"{'='*60}")
     
-    # Get all image and label files
     image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.JPG', '.JPEG', '.PNG', '.BMP']
     
-    # Check 1: Match images with labels
-    LOGGER.info(f"\n🔍 Checking file pairs...")
+    LOGGER.info(f"Checking file pairs...")
     
     img_files = set()
     for ext in image_extensions:
@@ -333,25 +330,24 @@ def validate_folder_structure(
     missing_images = lbl_files - img_files
     
     if missing_labels:
-        LOGGER.warning(f"\nImages without labels ({len(missing_labels)}):")
-        for name in sorted(list(missing_labels)[:10]):  # Show first 10
+        LOGGER.warning(f"Images without labels ({len(missing_labels)}):")
+        for name in sorted(list(missing_labels)[:10]):
             LOGGER.warning(f"   - {name}")
             stats['missing_labels'].append(name)
         if len(missing_labels) > 10:
             LOGGER.warning(f"   ... and {len(missing_labels) - 10} more")
     
     if missing_images:
-        LOGGER.warning(f"\nLabels without images ({len(missing_images)}):")
+        LOGGER.warning(f"Labels without images ({len(missing_images)}):")
         for name in sorted(list(missing_images)[:10]):
             LOGGER.warning(f"   - {name}")
             stats['missing_images'].append(name)
         if len(missing_images) > 10:
             LOGGER.warning(f"   ... and {len(missing_images) - 10} more")
     
-    # Check 2: Image validity and dimensions
-    LOGGER.info(f"\n🖼️  Checking image integrity and dimensions...")
+    LOGGER.info(f"Checking image integrity and dimensions...")
     corrupt_count = 0
-    image_dimensions = {}  # Store for cross-validation with labels
+    image_dimensions = {}
     
     for img_stem in sorted(img_files):
         img_path = None
@@ -368,14 +364,12 @@ def validate_folder_structure(
                 stats['corrupt_images'].append((img_path.name, info))
                 corrupt_count += 1
             else:
-                # Store dimensions for later validation
                 image_dimensions[img_stem] = info
     
     if corrupt_count == 0:
         LOGGER.info(f"   All {len(img_files)} images are valid with proper dimensions")
     
-    # Check 3: Label format validation with dimension checks
-    LOGGER.info(f"\n📝 Checking label format and coordinate dimensions...")
+    LOGGER.info(f"Checking label format and coordinate dimensions...")
     bad_files = []
     reshape_issues = []
     
@@ -387,7 +381,6 @@ def validate_folder_structure(
             lines = [line.strip() for line in f.readlines() if line.strip()]
         
         if not lines:
-            # Empty label (background image) - valid
             stats['empty_labels'].append(lbl_path.name)
             continue
         
@@ -396,7 +389,6 @@ def validate_folder_structure(
         for li, line in enumerate(lines):
             parts = line.split()
             
-            # Check minimum length (class_id + at least 3 points = 7 values)
             if len(parts) < 7:
                 bad_files.append((lbl_path.name, f"line {li+1}: too short ({len(parts)} values, need ≥7)"))
                 continue
@@ -404,7 +396,6 @@ def validate_folder_structure(
             cls_id = parts[0]
             coords = parts[1:]
             
-            # Check class ID is valid integer
             if not is_int(cls_id):
                 bad_files.append((lbl_path.name, f"line {li+1}: invalid class_id '{cls_id}' (must be integer)"))
                 continue
@@ -414,45 +405,37 @@ def validate_folder_structure(
                 bad_files.append((lbl_path.name, f"line {li+1}: negative class_id {cls_id_int}"))
                 continue
             
-            # Track class distribution
             stats['class_distribution'][cls_id_int] = stats['class_distribution'].get(cls_id_int, 0) + 1
             
-            # Check all coordinates are floats
             if not all(is_float(v) for v in coords):
                 bad_files.append((lbl_path.name, f"line {li+1}: non-numeric coordinate(s)"))
                 continue
             
-            # Check even number of coordinates (x,y pairs)
             if len(coords) % 2 != 0:
                 bad_files.append((lbl_path.name, f"line {li+1}: odd number of coords ({len(coords)})"))
                 continue
             
-            # Check minimum 3 points (6 coordinates)
             if len(coords) < 6:
                 bad_files.append((lbl_path.name, f"line {li+1}: <3 points ({len(coords)//2} points)"))
                 continue
             
-            # Check coordinates in range [0,1]
             floats = list(map(float, coords))
             out_of_range = [(i, v) for i, v in enumerate(floats) if v < 0 or v > 1]
             if out_of_range:
                 bad_files.append((lbl_path.name, f"line {li+1}: coords out of [0,1] range: {out_of_range[:3]}"))
                 continue
             
-            # CRITICAL: Check if coordinates can be reshaped (prevents axis remapping errors)
             can_reshape, result = check_coordinates_reshapeable(floats)
             if not can_reshape:
                 reshape_issues.append((lbl_path.name, f"line {li+1}: RESHAPE ERROR - {result}"))
                 bad_files.append((lbl_path.name, f"line {li+1}: dimension/reshape error - {result}"))
                 continue
             
-            # Check polygon area with safe dimension handling
             valid_area, area_result = check_polygon_area(floats)
             if not valid_area:
                 bad_files.append((lbl_path.name, f"line {li+1}: {area_result}"))
                 continue
             
-            # Cross-validate with image dimensions if available
             if img_dims:
                 img_width, img_height = img_dims
                 coords_valid, msg = validate_coordinates_with_image(floats, img_width, img_height)
@@ -460,9 +443,8 @@ def validate_folder_structure(
                     bad_files.append((lbl_path.name, f"line {li+1}: {msg}"))
                     stats['dimension_issues'].append((lbl_path.name, f"line {li+1}: {msg}"))
     
-    # Report results
     if reshape_issues:
-        LOGGER.info(f"\n🚨 CRITICAL: Found {len(reshape_issues)} RESHAPE/DIMENSION errors (will cause training to crash):")
+        LOGGER.info(f"CRITICAL: Found {len(reshape_issues)} RESHAPE/DIMENSION errors (will cause training to crash):")
         for name, reason in reshape_issues[:10]:
             LOGGER.info(f"   - {name}: {reason}")
         if len(reshape_issues) > 10:
@@ -470,8 +452,8 @@ def validate_folder_structure(
         stats['reshape_errors'] = reshape_issues
     
     if bad_files:
-        LOGGER.info(f"\nFound {len(bad_files)} total format/validation issues:")
-        for name, reason in bad_files[:20]:  # Show first 20
+        LOGGER.info(f"Found {len(bad_files)} total format/validation issues:")
+        for name, reason in bad_files[:20]:
             LOGGER.info(f"   - {name}: {reason}")
         if len(bad_files) > 20:
             LOGGER.info(f"   ... and {len(bad_files) - 20} more issues")
@@ -479,37 +461,35 @@ def validate_folder_structure(
     else:
         LOGGER.info(f"   All label files have correct format and dimensions")
     
-    # Summary
     stats['valid_pairs'] = len(img_files & lbl_files)
     
-    LOGGER.info(f"\n📈 Summary for {folder_name}:")
+    LOGGER.info(f"Summary for {folder_name}:")
     LOGGER.info(f"   Valid image-label pairs: {stats['valid_pairs']}")
     LOGGER.info(f"   Total annotations: {stats['total_annotations']}")
     LOGGER.info(f"   Background images (empty labels): {len(stats['empty_labels'])}")
     LOGGER.info(f"   Images missing labels: {len(stats['missing_labels'])}")
     LOGGER.info(f"   Labels missing images: {len(stats['missing_images'])}")
     LOGGER.info(f"   Corrupt images: {len(stats['corrupt_images'])}")
-    LOGGER.info(f"   🚨 RESHAPE/DIMENSION errors: {len(stats['reshape_errors'])}")
+    LOGGER.info(f"   RESHAPE/DIMENSION errors: {len(stats['reshape_errors'])}")
     LOGGER.info(f"   Coordinate-dimension mismatches: {len(stats['dimension_issues'])}")
     LOGGER.info(f"   Other format errors: {len(stats['bad_format'])}")
     
     if stats['class_distribution']:
-        LOGGER.info(f"\n   Class distribution:")
+        LOGGER.info(f"   Class distribution:")
         for cls_id in sorted(stats['class_distribution'].keys()):
             count = stats['class_distribution'][cls_id]
             LOGGER.info(f"      Class {cls_id}: {count} instances")
     
-    # Final verdict
     critical_issues = (stats['reshape_errors'] or stats['corrupt_images'] or 
                     stats['missing_labels'] or stats['missing_images'])
     
     if not critical_issues and not stats['bad_format']:
-        LOGGER.info(f"\n{folder_name.upper()} dataset is READY for training!")
+        LOGGER.info(f"{folder_name.upper()} dataset is READY for training!")
     elif critical_issues:
-        LOGGER.info(f"\n🚨 {folder_name.upper()} dataset has CRITICAL issues that WILL cause training to crash!")
+        LOGGER.info(f"{folder_name.upper()} dataset has CRITICAL issues that WILL cause training to crash!")
         LOGGER.info(f"   Fix reshape/dimension errors before training!")
     else:
-        LOGGER.info(f"\n{folder_name.upper()} dataset has issues that should be fixed")
+        LOGGER.info(f"{folder_name.upper()} dataset has issues that should be fixed")
     
     return stats
 
@@ -558,12 +538,11 @@ def validate_segmentation_labels(
             LOGGER.warning(f"Skipping {split}: path does not exist ({split_path})")
             continue
         
-        # Get the parent folder that contains images and labels
         folder_path = split_path.parent
         stats = validate_folder_structure(folder_path, folder_name=split)
         all_stats.update(stats)
     
-    LOGGER.info(f"\n{'='*80}")
+    LOGGER.info(f"{'='*80}")
     LOGGER.info("SEGMENTATION LABEL VALIDATION COMPLETE!")
     LOGGER.info('='*80)
     
@@ -599,25 +578,22 @@ def validate_dataset_complete(
     
     results = {}
     
-    # Step 1: Validate dataset structure
     structure_validation = validate_dataset(data_yaml_path, roboflow_config)
     results['structure'] = structure_validation
     
     if not structure_validation['valid']:
-        LOGGER.error("\nDataset structure validation failed!")
+        LOGGER.error("Dataset structure validation failed!")
         LOGGER.error("Cannot proceed with detailed validation.")
         return results
     
-    # Step 2: Detailed label validation (optional)
     if perform_detailed_validation:
-        LOGGER.info("\n" + "=" * 80)
+        LOGGER.info("=" * 80)
         LOGGER.info("PROCEEDING WITH DETAILED LABEL VALIDATION")
         LOGGER.info("=" * 80)
         
         label_validation = validate_segmentation_labels(data_yaml_path, roboflow_config)
         results['labels'] = label_validation
         
-        # Check for critical issues
         has_critical_issues = False
         for split, stats in label_validation.items():
             if stats.get('reshape_errors') or stats.get('corrupt_images'):
@@ -625,8 +601,8 @@ def validate_dataset_complete(
                 break
         
         if has_critical_issues:
-            LOGGER.error("\n" + "=" * 80)
-            LOGGER.error("🚨 CRITICAL ISSUES DETECTED!")
+            LOGGER.error("=" * 80)
+            LOGGER.error("CRITICAL ISSUES DETECTED!")
             LOGGER.error("=" * 80)
             LOGGER.error("The dataset has issues that will cause training to crash.")
             LOGGER.error("Please fix the following before training:")
@@ -634,7 +610,7 @@ def validate_dataset_complete(
             LOGGER.error("  - Corrupt or invalid images")
             results['ready_for_training'] = False
         else:
-            LOGGER.info("\n" + "=" * 80)
+            LOGGER.info("=" * 80)
             LOGGER.info("DATASET VALIDATION PASSED!")
             LOGGER.info("=" * 80)
             results['ready_for_training'] = True
@@ -642,11 +618,6 @@ def validate_dataset_complete(
         results['ready_for_training'] = True
     
     return results
-
-
-# ============================================================================
-# Convenience Functions
-# ============================================================================
 
 def validate_from_config(
     config_path: str = "src/config/config.yaml",
@@ -668,11 +639,6 @@ def validate_from_config(
         app_config.roboflow,
         perform_detailed_validation=perform_detailed_validation
     )
-
-
-# ============================================================================
-# CLI Interface
-# ============================================================================
 
 def main():
     """Command-line interface for dataset validation"""
@@ -717,10 +683,10 @@ def main():
         )
         
         if results.get('ready_for_training'):
-            LOGGER.info("\nDataset is ready for training!")
+            LOGGER.info("Dataset is ready for training!")
             return 0
         else:
-            LOGGER.error("\nDataset has critical issues!")
+            LOGGER.error("Dataset has critical issues!")
             return 1
     
     return 0
