@@ -45,3 +45,8 @@ prediction:
   output_dir: output
   confidence: 0.5
   iou: 0.8
+
+video:
+  width: 640
+  height: 480
+  fps: 30

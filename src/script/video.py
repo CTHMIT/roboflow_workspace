@@ -3,19 +3,22 @@
 RealSense 435i + YOLO11 Segmentation
 Real-time object detection and segmentation using Intel RealSense 435i camera
 """
-
+from __future__ import annotations
 import cv2
 import numpy as np
 from pathlib import Path
 import pyrealsense2 as rs
 from ultralytics import YOLO
-from typing import Union
+from typing import Union, Optional
 from setup.config import AppConfig
 from utils.logger import LOGGER
 
 class RealSenseYOLO:
     def __init__(
             self, 
+            width: int = 640,
+            height: int = 480,
+            fps: int = 30,
             model_path: Union[str, Path] = 'yolo11-seg.pt', 
             confidence: float = 0.5, 
             iou: float = 0.8, 
@@ -28,33 +31,31 @@ class RealSenseYOLO:
             model_path: Path to YOLO11 segmentation model
             confidence: Confidence threshold for detections
         """
+        self.width = width
+        self.height = height
+        self.fps = fps
         self.confidence = confidence
         self.iou = iou
         self.verbose = verbose
         
-        # Initialize YOLO model
         LOGGER.info(f"Loading YOLO model: {model_path}")
         self.model = YOLO(model_path)
         
-        # Configure RealSense pipeline
-        self.pipeline = rs.pipeline()
-        self.config = rs.config()
+        self.pipeline: rs.pipeline = rs.pipeline()
+        self.config: rs.config = rs.config()
+        self.profile: Optional[rs.pipeline_profile] = None
         
-        # Get device info
         pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
         pipeline_profile = self.config.resolve(pipeline_wrapper)
         device = pipeline_profile.get_device()
         
         LOGGER.info(f"Using device: {device.get_info(rs.camera_info.name)}")
         
-        # Enable color stream (1280x720 @ 30fps)
-        self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, self.fps)
                 
-        # Start streaming
         LOGGER.info("Starting RealSense pipeline...")
         self.pipeline.start(self.config)
         
-        # Allow camera to stabilize
         for _ in range(30):
             self.pipeline.wait_for_frames()
         
@@ -68,19 +69,17 @@ class RealSenseYOLO:
             color_image: BGR color image
             depth_image: Depth image
         """
-        frames = self.pipeline.wait_for_frames()
+        frames: rs.composite_frame = self.pipeline.wait_for_frames()
         
-        # Align depth frame to color frame
         align = rs.align(rs.stream.color)
         aligned_frames = align.process(frames)
         
-        color_frame = aligned_frames.get_color_frame()
-        depth_frame = aligned_frames.get_depth_frame()
+        color_frame: rs.video_frame = aligned_frames.get_color_frame()
+        depth_frame: rs.depth_frame = aligned_frames.get_depth_frame()
         
         if not color_frame:
             return None, None
         
-        # Convert to numpy arrays
         color_image = np.asanyarray(color_frame.get_data())
         depth_image = np.asanyarray(depth_frame.get_data()) if depth_frame else None
         
@@ -97,14 +96,12 @@ class RealSenseYOLO:
             annotated_frame: Frame with detections drawn
             results: YOLO results object
         """
-        # Run YOLO inference
         results = self.model(
             frame, 
             conf=self.confidence, 
             iou=self.iou,
             verbose=self.verbose)
         
-        # Get annotated frame with segmentation masks
         annotated_frame = results[0].plot()
         
         return annotated_frame, results[0]
@@ -121,25 +118,20 @@ class RealSenseYOLO:
         
         try:
             while True:
-                # Get frames from camera
                 color_image, depth_image = self.get_frames()
                 
                 if color_image is None:
                     continue
                 
-                # Process with YOLO
                 annotated_frame, results = self.process_frame(color_image)
                 
-                # Add FPS counter
                 frame_count += 1
                 cv2.putText(annotated_frame, f"Frame: {frame_count}", 
                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
                            0.7, (0, 255, 0), 2)
                 
-                # Display results
                 cv2.imshow('RealSense 435i + YOLO11 Segmentation', annotated_frame)
                 
-                # Optional: Display depth colormap
                 if depth_image is not None:
                     depth_colormap = cv2.applyColorMap(
                         cv2.convertScaleAbs(depth_image, alpha=0.03), 
@@ -147,7 +139,6 @@ class RealSenseYOLO:
                     )
                     cv2.imshow('Depth', depth_colormap)
                 
-                # Print detection info
                 if verbose == True:
                     if len(results.boxes) > 0:
                         LOGGER.info(f"Frame {frame_count}: Detected {len(results.boxes)} objects")
@@ -157,7 +148,6 @@ class RealSenseYOLO:
                             cls_name = results.names[cls_id]
                             LOGGER.info(f"  - {cls_name}: {conf:.2f}")
                 
-                # Handle keyboard input
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
                     LOGGER.info("\nQuitting...")
@@ -172,20 +162,26 @@ class RealSenseYOLO:
     
     def cleanup(self):
         """Stop pipeline and close windows"""
-        print("Cleaning up...")
+        LOGGER.info("Cleaning up...")
         self.pipeline.stop()
         cv2.destroyAllWindows()
 
 
 def rs_predict(app_config: AppConfig):
-    # Configuration
     model_path = Path(app_config.prediction.predict_dir.absolute(), f"{app_config.training.model_name}.pt")
     LOGGER.info(f"Load Model from : {model_path}")
     confidence = app_config.prediction.confidence 
     iou = app_config.prediction.iou
-    
-    # Create and run detector
-    detector = RealSenseYOLO(model_path=model_path, confidence=confidence, iou=iou)
+    width = app_config.video.width
+    height = app_config.video.height
+    fps = app_config.video.fps
+    detector = RealSenseYOLO(
+        width=width,
+        height=height,
+        fps=fps,
+        model_path=model_path, 
+        confidence=confidence, 
+        iou=iou)
     detector.run(verbose=app_config.prediction.verbose)
 
 

@@ -6,7 +6,7 @@ Extracts frames from videos and runs predictions
 import cv2
 import os
 from pathlib import Path
-
+from utils.logger import LOGGER
 
 def extract_frames(video_path, output_dir, frame_interval=30):
     """
@@ -17,23 +17,20 @@ def extract_frames(video_path, output_dir, frame_interval=30):
         output_dir: Directory to save extracted frames
         frame_interval: Extract every Nth frame (default: 30 = 1 frame per second at 30fps)
     """
-    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # Open video
     cap = cv2.VideoCapture(video_path)
     
     if not cap.isOpened():
-        print(f"Error: Could not open video {video_path}")
+        LOGGER.error(f"Error: Could not open video {video_path}")
         return []
     
-    # Get video properties
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
     video_name = Path(video_path).stem
-    print(f"\nProcessing: {video_name}")
-    print(f"FPS: {fps}, Total Frames: {total_frames}")
+    LOGGER.info(f"\nProcessing: {video_name}")
+    LOGGER.info(f"FPS: {fps}, Total Frames: {total_frames}")
     
     frame_count = 0
     saved_count = 0
@@ -45,19 +42,18 @@ def extract_frames(video_path, output_dir, frame_interval=30):
         if not ret:
             break
         
-        # Save frame at specified intervals
         if frame_count % frame_interval == 0:
             frame_filename = f"{video_name}_frame_{frame_count:06d}.jpg"
             frame_path = os.path.join(output_dir, frame_filename)
             cv2.imwrite(frame_path, frame)
             saved_frames.append(frame_path)
             saved_count += 1
-            print(f"Saved: {frame_filename}")
+            LOGGER.info(f"Saved: {frame_filename}")
         
         frame_count += 1
     
     cap.release()
-    print(f"Extracted {saved_count} frames from {video_name}\n")
+    LOGGER.info(f"Extracted {saved_count} frames from {video_name}\n")
     
     return saved_frames
 
@@ -75,49 +71,39 @@ def run_predictions(video_paths, output_dir="output/frames", frame_interval=30):
     
     for video_path in video_paths:
         if not os.path.exists(video_path):
-            print(f"Warning: Video not found: {video_path}")
+            LOGGER.info(f"Warning: Video not found: {video_path}")
             continue
         
-        # Create subdirectory for each video
         video_name = Path(video_path).stem
         video_output_dir = os.path.join(output_dir, video_name)
         
         frames = extract_frames(video_path, video_output_dir, frame_interval)
         all_frames.extend(frames)
     
-    print(f"\n{'='*50}")
-    print(f"Total frames extracted: {len(all_frames)}")
-    print(f"Output directory: {output_dir}")
-    print(f"{'='*50}\n")
+    LOGGER.info(f"\n{'='*50}")
+    LOGGER.info(f"Total frames extracted: {len(all_frames)}")
+    LOGGER.info(f"Output directory: {output_dir}")
+    LOGGER.info(f"{'='*50}\n")
     
     return all_frames
 
 
 if __name__ == "__main__":
-    # Video paths
+
     video_paths = [
         "datasets/video/episode_000000.mp4",
         "datasets/video/episode_000001.mp4"
     ]
     
-    # Configuration
     OUTPUT_DIR = "output/frames"
-    FRAME_INTERVAL = 30  # Extract 1 frame every 30 frames (1 fps for 30fps video)
+    FRAME_INTERVAL = 30 
     
-    print("Starting video frame extraction...")
-    print(f"Frame interval: {FRAME_INTERVAL} (every {FRAME_INTERVAL} frames)")
+    LOGGER.info("Starting video frame extraction...")
+    LOGGER.info(f"Frame interval: {FRAME_INTERVAL} (every {FRAME_INTERVAL} frames)")
     
-    # Run predictions (frame extraction)
     extracted_frames = run_predictions(
         video_paths=video_paths,
         output_dir=OUTPUT_DIR,
         frame_interval=FRAME_INTERVAL
     )
-    
-    # Save list of extracted frames for upload script
-    with open("extracted_frames.txt", "w") as f:
-        for frame_path in extracted_frames:
-            f.write(f"{frame_path}\n")
-    
-    print("Frame list saved to: extracted_frames.txt")
-    print("Ready for upload! Run upload.py next.")
+        

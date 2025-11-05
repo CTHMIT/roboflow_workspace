@@ -134,6 +134,10 @@ class PredictConfig(BaseModel):
     name: Optional[str] = Field(default=None, description="Name of the prediction run. Used for creating a subdirectory within the project folder")
     verbose: bool = Field(default=False, description="Get information with predict detail")
 
+class VideoConfig(BaseModel):
+    width: int = Field(default=640, description='Width for the image size')
+    height: int = Field(default=480, description='Height for the image size')
+    fps: int = Field(default=30, description='FPS for the video')
 
 class EnvironmentConfig(BaseSettings):
     """Environment variables configuration"""
@@ -149,6 +153,7 @@ class AppConfig(BaseModel):
     roboflow: RoboflowConfig
     training: TrainingConfig
     prediction: PredictConfig
+    video: VideoConfig
 
     @classmethod
     def from_yaml(cls, config_path: str = "src/config/config.yaml") -> "AppConfig":
@@ -168,10 +173,8 @@ class AppConfig(BaseModel):
         config_file = Path(config_path)
         config_file.parent.mkdir(parents=True, exist_ok=True)
         
-        # Convert to dict and handle enums
         config_dict = self.model_dump(mode="python")
         
-        # Convert Path objects to strings
         def convert_paths(obj):
             if isinstance(obj, dict):
                 return {k: convert_paths(v) for k, v in obj.items()}
@@ -186,9 +189,6 @@ class AppConfig(BaseModel):
         with open(config_file, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
-
-
-
 def load_config(config_path: str = "src/config/config.yaml") -> tuple[AppConfig, EnvironmentConfig]:
     """Load both application config and environment config"""
     app_config = AppConfig.from_yaml(config_path)
@@ -196,7 +196,6 @@ def load_config(config_path: str = "src/config/config.yaml") -> tuple[AppConfig,
     return app_config, env_config
 
 def main():
-    # Create example configuration
     example_config = AppConfig(
         roboflow=RoboflowConfig(
             workspace="yoloseg-oxj7u",
@@ -215,9 +214,7 @@ def main():
         )
     )
     
-    # Save example config
     example_config.save_yaml("config.yaml")
-    print("✅ Example config.yaml created!")
 
 if __name__ == "__main__":
     main()
