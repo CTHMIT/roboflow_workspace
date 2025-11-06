@@ -2,9 +2,14 @@
 import os
 from pathlib import Path
 from roboflow import Roboflow
+import sys
+
+_SRC_ROOT = Path(__file__).resolve().parents[1]  # <repo>/src
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
 
 from setup.config import load_config, RoboflowConfig, EnvironmentConfig
-from logger import LOGGER
+from utils.logger import LOGGER
 
 def download_roboflow_dataset(
     roboflow_config: RoboflowConfig,

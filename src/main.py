@@ -211,4 +211,12 @@ Examples:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemError as e:
+        import sys, traceback
+        traceback.print_exc()
+        ce = [(n, getattr(m, "__file__", "")) for n, m in sys.modules.items()
+            if getattr(m, "__file__", "").endswith((".so", ".pyd"))]
+        for n, f in sorted(ce): print(n, "->", f)
+        raise

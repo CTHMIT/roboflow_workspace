@@ -5,8 +5,14 @@ import sys
 import psutil
 from pathlib import Path
 import ultralytics
+import sys
+
+_SRC_ROOT = Path(__file__).resolve().parents[1]  # <repo>/src
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
 from setup.config import TrainingConfig, RoboflowConfig
-from logger import LOGGER
+from utils.logger import LOGGER
 
 def cleanup_cuda():
     gc.collect()

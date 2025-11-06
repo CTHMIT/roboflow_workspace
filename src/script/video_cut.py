@@ -6,6 +6,12 @@ Extracts frames from videos and runs predictions
 import cv2
 import os
 from pathlib import Path
+import sys
+
+_SRC_ROOT = Path(__file__).resolve().parents[1]  # <repo>/src
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
 from utils.logger import LOGGER
 
 def extract_frames(video_path, output_dir, frame_interval=30):
@@ -91,9 +97,16 @@ def run_predictions(video_paths, output_dir="output/frames", frame_interval=30):
 if __name__ == "__main__":
 
     video_paths = [
-        "datasets/video/episode_000000.mp4",
-        "datasets/video/episode_000001.mp4"
+        "datasets/video/episode_000002.mp4",
+        "datasets/video/episode_000003.mp4"
     ]
+
+
+    # episode_000002/episode_000002_frame_001110.jpg
+    # episode_000002/episode_000002_frame_001350.jpg
+    # episode_000002/episode_000002_frame_001770.jpg
+    # episode_000002/episode_000002_frame_003030.jpg
+
     
     OUTPUT_DIR = "output/frames"
     FRAME_INTERVAL = 30 

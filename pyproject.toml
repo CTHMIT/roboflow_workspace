@@ -6,13 +6,11 @@ authors = [
     {name = "cthsu", email = "chuntsehsu@gmail.com"},
 ]
 dependencies = [
-    "ultralytics>=8.3.223",
     "pydantic-settings>=2.11.0",
     "pydantic>=2.12.3",
     "roboflow>=1.2.11",
     "pyrealsense2>=2.56.5.9235",
-    "opencv-contrib-python<4.10",
-    "numpy<2",
+    "ultralytics>=8.3.225",
 ]
     
 requires-python = "==3.10.*"
