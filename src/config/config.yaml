@@ -51,3 +51,10 @@ video:
   width: 1280
   height: 720
   fps: 30
+
+upload:
+  batch_name: null
+  split: train
+  tags:
+    - auto-upload
+  frame_list_file: extracted_frames.txt

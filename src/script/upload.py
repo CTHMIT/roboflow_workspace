@@ -4,9 +4,11 @@ Uploads extracted frames to Roboflow project
 """
 
 import os
+import argparse
 from pathlib import Path
 from roboflow import Roboflow
 
+from setup.config import load_config
 from utils.logger import LOGGER
 
 
@@ -22,10 +24,8 @@ def upload_to_roboflow(image_paths, api_key, workspace, project, batch_name=None
         batch_name: Optional batch name for organizing uploads
         split: Dataset split - 'train', 'valid', or 'test' (default: 'train')
     """
-    # Initialize Roboflow
     rf = Roboflow(api_key=api_key)
     
-    # Get project
     project_obj = rf.workspace(workspace).project(project)
     
     LOGGER.info(f"\nConnected to Roboflow project: {project}")
@@ -87,54 +87,106 @@ def load_frame_list(frame_list_file="extracted_frames.txt"):
     LOGGER.info(f"Loaded {len(frames)} frames from {frame_list_file}")
     return frames
 
-
-if __name__ == "__main__":
-
-    ROBOFLOW_API_KEY = "YOUR_API_KEY_HERE"
-    WORKSPACE = "your-workspace"
-    PROJECT = "your-project"
-    BATCH_NAME = "video-frames-batch-1"
-    SPLIT = "train"
-
-    if ROBOFLOW_API_KEY == "YOUR_API_KEY_HERE":
-        LOGGER.info("ERROR: Please set your Roboflow API key!")
-        LOGGER.info("Get your API key from: https://app.roboflow.com/settings/api")
+def main():
+    parser = argparse.ArgumentParser(description="Upload images to Roboflow")
+    parser.add_argument("--frame-list", type=str, default=None, 
+                        help="Path to file containing list of image paths. Default: uses upload.frame_list_file from config")
+    parser.add_argument("--api-key", type=str, default=None,
+                        help="Roboflow API key. Default: reads from .env file (ROBOFLOW_API_KEY)")
+    parser.add_argument("--workspace", type=str, default=None,
+                        help="Roboflow workspace ID. Default: uses roboflow.workspace from config")
+    parser.add_argument("--project", type=str, default=None,
+                        help="Roboflow project ID. Default: uses roboflow.project from config")
+    parser.add_argument("--batch-name", type=str, default=None,
+                        help="Batch name for organizing uploads. Default: uses upload.batch_name from config")
+    parser.add_argument("--split", type=str, default=None, choices=["train", "valid", "test"],
+                        help="Dataset split. Default: uses upload.split from config")
+    parser.add_argument("--config", type=str, default="config.yaml", 
+                        help="Path to config file")
+    
+    args = parser.parse_args()
+    
+    try:
+        config, env_config = load_config(args.config)
+        LOGGER.info(f"✓ Loaded configuration from: {args.config}")
+    except FileNotFoundError:
+        LOGGER.error(f"Configuration file not found: {args.config}")
+        LOGGER.info("Please ensure config.yaml exists")
+        exit(1)
+    except Exception as e:
+        LOGGER.error(f"Failed to load configuration: {str(e)}")
         exit(1)
     
-    if WORKSPACE == "your-workspace" or PROJECT == "your-project":
-        LOGGER.info("ERROR: Please set your workspace and project IDs!")
-        LOGGER.info("Find them in your Roboflow project URL")
+    api_key = args.api_key or env_config.roboflow_api_key
+    workspace = args.workspace or config.roboflow.workspace
+    project = args.project or config.roboflow.project    
+    batch_name = args.batch_name or config.upload.batch_name
+    split = args.split or config.upload.split
+    frame_list = args.frame_list or config.upload.frame_list_file
+        
+    validation_errors = []
+    
+    if not api_key or api_key == "your_api_key_here":
+        validation_errors.append("Roboflow API key not set")
+        LOGGER.error("ERROR: Roboflow API key is required!")
+    
+    if not workspace or workspace == "your-workspace":
+        validation_errors.append("Workspace ID not set")
+        
+    if not project or project == "your-project":
+        validation_errors.append("Project ID not set")
+        LOGGER.error("ERROR: Project ID is required!")
+    
+    if validation_errors:
+        LOGGER.error(f"\n{len(validation_errors)} validation error(s) found")
         exit(1)
     
-    LOGGER.info("Starting Roboflow upload...")
-    LOGGER.info(f"Workspace: {WORKSPACE}")
-    LOGGER.info(f"Project: {PROJECT}")
+    LOGGER.info(f"  Workspace: {workspace}")
+    LOGGER.info(f"  Project: {project}")
+    LOGGER.info(f"  Frame list: {frame_list}")
+    LOGGER.info(f"  Batch name: {batch_name or 'None'}")
+    LOGGER.info(f"  Split: {split}")
+    LOGGER.info(f"  Tags: {config.upload.tags}")
+    LOGGER.info("")
     
-    frame_paths = load_frame_list("extracted_frames.txt")
+    frame_paths = load_frame_list(frame_list)
     
     if not frame_paths:
-        LOGGER.info("No frames to upload!")
+        LOGGER.error(f"No frames found in: {frame_list}")
+        LOGGER.info(f"Please check file exists: {frame_list}")
         exit(1)
     
     try:
+        tags = ["video-extracted"]
+        if batch_name:
+            tags.append(batch_name)
+        tags.extend(config.upload.tags)
+        
+        # Upload
         uploaded, failed = upload_to_roboflow(
             image_paths=frame_paths,
-            api_key=ROBOFLOW_API_KEY,
-            workspace=WORKSPACE,
-            project=PROJECT,
-            batch_name=BATCH_NAME,
-            split=SPLIT
+            api_key=api_key,
+            workspace=workspace,
+            project=project,
+            batch_name=batch_name,
+            split=split
         )
         
         if uploaded > 0:
-            LOGGER.info("Upload successful!")
-            LOGGER.info(f"View your images at: https://app.roboflow.com/{WORKSPACE}/{PROJECT}")
+            LOGGER.info(f"Upload Statistics:")
+            LOGGER.info(f"  ✓ Successfully uploaded: {uploaded}")
+            LOGGER.info(f"  ✗ Failed: {failed}")
+            LOGGER.info(f"View your images at:")
+            LOGGER.info(f"  https://app.roboflow.com/{workspace}/{project}")
+            LOGGER.info("")
+        else:
+            LOGGER.error("No images were successfully uploaded")
+            exit(1)
         
     except Exception as e:
-        LOGGER.info(f"\nUpload failed with error:")
-        LOGGER.info(f"{str(e)}")
-        LOGGER.info("\nPlease check:")
-        LOGGER.info("1. Your API key is correct")
-        LOGGER.info("2. Workspace and project IDs are correct")
-        LOGGER.info("3. You have permission to upload to this project")
-        LOGGER.info("4. The roboflow package is installed: pip install roboflow")
+        LOGGER.error(f"Error: {str(e)}")
+        exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -140,6 +140,22 @@ class VideoConfig(BaseModel):
     height: int = Field(default=480, description='Height for the image size')
     fps: int = Field(default=30, description='FPS for the video')
 
+
+class UploadConfig(BaseModel):
+    """Roboflow upload configuration"""
+    batch_name: Optional[str] = Field(default=None, description="Default batch name for uploads")
+    split: str = Field(default="train", description="Default dataset split (train/valid/test)")
+    tags: list[str] = Field(default_factory=lambda: ["auto-upload"], description="Default tags for uploaded images")
+    frame_list_file: str = Field(default="extracted_frames.txt", description="Default frame list file name")
+    
+    @field_validator("split")
+    @classmethod
+    def validate_split(cls, v):
+        valid_splits = ["train", "valid", "test"]
+        if v not in valid_splits:
+            raise ValueError(f"Split must be one of {valid_splits}")
+        return v
+
 class EnvironmentConfig(BaseSettings):
     """Environment variables configuration"""
     roboflow_api_key: str = Field(..., description="Roboflow API key")
@@ -155,6 +171,7 @@ class AppConfig(BaseModel):
     training: TrainingConfig
     prediction: PredictConfig
     video: VideoConfig
+    upload: UploadConfig
 
     @classmethod
     def from_yaml(cls, config_path: str = "src/config/config.yaml") -> "AppConfig":
