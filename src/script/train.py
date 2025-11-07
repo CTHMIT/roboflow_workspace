@@ -216,6 +216,7 @@ def train_yolo_segmentation(
             imgsz=training_config.img_size,
             batch=training_config.batch_size,
             workers=training_config.workers,
+            rect=training_config.rect,
             device=training_config.device.value,
             project=str(training_config.project_dir),
             name=run_name,

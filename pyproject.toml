@@ -5,15 +5,8 @@ description = "Default template for PDM package"
 authors = [
     {name = "cthsu", email = "chuntsehsu@gmail.com"},
 ]
-dependencies = [
-    "pydantic-settings>=2.11.0",
-    "pydantic>=2.12.3",
-    "roboflow>=1.2.11",
-    "pyrealsense2>=2.56.5.9235",
-    "ultralytics>=8.3.225",
-]
-    
-requires-python = "==3.10.*"
+dependencies = ["pydantic-settings>=2.11.0", "pydantic>=2.12.4", "roboflow>=1.2.11", "pyrealsense2>=2.56.5.9235", "ultralytics>=8.3.225"]
+requires-python = "==3.11.*"
 readme = "README.md"
 license = {text = "MIT"}
 

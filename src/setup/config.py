@@ -73,6 +73,7 @@ class TrainingConfig(BaseModel):
     epochs: int = Field(default=300, ge=1, le=1000, description="Number of training epochs")
     batch_size: int = Field(default=16, ge=1, le=128, description="Batch size")
     img_size: int = Field(default=640, ge=320, le=1280, description="Image size")
+    rect: bool = Field(default=False, description="Enables minimum padding strategy")
     device: Device = Field(default=Device.GPU_0, description="Training device")
     
     # Optimizer settings

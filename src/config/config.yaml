@@ -1,7 +1,7 @@
 roboflow:
   workspace: yoloseg-oxj7u
   project: yolo-seg-okjbk
-  version: 7
+  version: 11
   format: yolov11
   save_path: datasets
   overwrite: true
@@ -11,13 +11,14 @@ training:
   epochs: 300
   batch_size: 16
   img_size: 640
+  rect: true
   device: '0'
   
   optimizer: AdamW
   lr0: 0.01
-  lrf: 0.01
+  lrf: 0.0001
   momentum: 0.937
-  weight_decay: 0.0005
+  weight_decay: 0.0001
   
   warmup_epochs: 3.0
   warmup_momentum: 0.8
@@ -43,10 +44,10 @@ training:
 prediction:
   predict_dir: models/production
   output_dir: output
-  confidence: 0.5
+  confidence: 0.7
   iou: 0.8
 
 video:
-  width: 640
-  height: 480
+  width: 1280
+  height: 720
   fps: 30
